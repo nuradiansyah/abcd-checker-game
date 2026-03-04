@@ -64,11 +64,21 @@ public class CheckerGameEngine {
         
         for (int rowDir : directions) {
             for (int colDir : new int[]{-1, 1}) {
-                int newRow = row + rowDir;
-                int newCol = col + colDir;
-                
-                if (board.isValidPosition(newRow, newCol) && board.isEmpty(newRow, newCol)) {
-                    moves.add(new CheckerMove(row, col, newRow, newCol));
+                if (piece.isKing()) {
+                    // Flying king: slide multiple squares along the diagonal
+                    int newRow = row + rowDir;
+                    int newCol = col + colDir;
+                    while (board.isValidPosition(newRow, newCol) && board.isEmpty(newRow, newCol)) {
+                        moves.add(new CheckerMove(row, col, newRow, newCol));
+                        newRow += rowDir;
+                        newCol += colDir;
+                    }
+                } else {
+                    int newRow = row + rowDir;
+                    int newCol = col + colDir;
+                    if (board.isValidPosition(newRow, newCol) && board.isEmpty(newRow, newCol)) {
+                        moves.add(new CheckerMove(row, col, newRow, newCol));
+                    }
                 }
             }
         }
@@ -85,20 +95,52 @@ public class CheckerGameEngine {
         
         for (int rowDir : directions) {
             for (int colDir : new int[]{-1, 1}) {
-                int jumpRow = row + rowDir;
-                int jumpCol = col + colDir;
-                int landRow = row + (2 * rowDir);
-                int landCol = col + (2 * colDir);
-                
-                if (board.isValidPosition(landRow, landCol)) {
-                    CheckerPiece jumpedPiece = board.getPiece(jumpRow, jumpCol);
+                if (piece.isKing()) {
+                    // Flying king capture: travel along diagonal, find an enemy piece,
+                    // then land on any empty square beyond it
+                    int scanRow = row + rowDir;
+                    int scanCol = col + colDir;
                     
-                    if (jumpedPiece != null && 
-                        jumpedPiece.getColor() != piece.getColor() && 
-                        board.isEmpty(landRow, landCol)) {
+                    // Slide along the diagonal until we hit something
+                    while (board.isValidPosition(scanRow, scanCol) && board.isEmpty(scanRow, scanCol)) {
+                        scanRow += rowDir;
+                        scanCol += colDir;
+                    }
+                    
+                    // Check if we found an enemy piece
+                    if (board.isValidPosition(scanRow, scanCol)) {
+                        CheckerPiece jumpedPiece = board.getPiece(scanRow, scanCol);
+                        if (jumpedPiece != null && jumpedPiece.getColor() != piece.getColor()) {
+                            int jumpRow = scanRow;
+                            int jumpCol = scanCol;
+                            // Land on any empty square beyond the captured piece
+                            int landRow = jumpRow + rowDir;
+                            int landCol = jumpCol + colDir;
+                            while (board.isValidPosition(landRow, landCol) && board.isEmpty(landRow, landCol)) {
+                                CheckerMove move = new CheckerMove(row, col, landRow, landCol, jumpRow, jumpCol);
+                                captures.add(move);
+                                landRow += rowDir;
+                                landCol += colDir;
+                            }
+                        }
+                    }
+                } else {
+                    // Regular piece: can only jump one square over an adjacent enemy
+                    int jumpRow = row + rowDir;
+                    int jumpCol = col + colDir;
+                    int landRow = row + (2 * rowDir);
+                    int landCol = col + (2 * colDir);
+                    
+                    if (board.isValidPosition(landRow, landCol)) {
+                        CheckerPiece jumpedPiece = board.getPiece(jumpRow, jumpCol);
                         
-                        CheckerMove move = new CheckerMove(row, col, landRow, landCol, jumpRow, jumpCol);
-                        captures.add(move);
+                        if (jumpedPiece != null && 
+                            jumpedPiece.getColor() != piece.getColor() && 
+                            board.isEmpty(landRow, landCol)) {
+                            
+                            CheckerMove move = new CheckerMove(row, col, landRow, landCol, jumpRow, jumpCol);
+                            captures.add(move);
+                        }
                     }
                 }
             }
@@ -115,7 +157,7 @@ public class CheckerGameEngine {
         board.removePiece(move.getFromRow(), move.getFromCol());
         
         for (int[] captured : move.getCapturedPositions()) {
-            board.removePiece(captured[0], captured[1]);
+            board.capturePiece(captured[0], captured[1]);
         }
         
         if (shouldPromoteToKing(piece, move.getToRow())) {

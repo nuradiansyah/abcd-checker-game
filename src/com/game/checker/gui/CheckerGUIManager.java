@@ -8,35 +8,43 @@ import java.time.Duration;
 import java.time.Instant;
 
 public class CheckerGUIManager extends JFrame {
+    private static final long serialVersionUID = 1L;
+    
     private CardLayout cardLayout;
     private JPanel mainPanel;
     
     private String gameMode;
+    private String aiLevel;
     private String player1Name;
     private String player2Name;
     private CheckerColor playerColor;
     private Instant startTime;
     
-    private CheckerGameEngine engine;
+    private transient CheckerGameEngine engine;
     private CheckerBoardPanel boardPanel;
+    private CapturedPiecesPanel capturedPiecesPanel;
+    private boolean gameOverHandled = false;
     
     private static final Color PRIMARY_COLOR = new Color(52, 73, 94);
     private static final Color BUTTON_COLOR = new Color(41, 128, 185);
     private static final Color BUTTON_HOVER = new Color(52, 152, 219);
     
+    
     public CheckerGUIManager() {
-        setTitle("Checker Game");
-        setSize(800, 850);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
         
-        mainPanel.add(createModeSelectionPanel(), "MODE_SELECTION");
-        
-        add(mainPanel);
-        setVisible(true);
+        SwingUtilities.invokeLater(() -> {
+            setTitle("Checker Game");
+            setSize(1050, 850);
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLocationRelativeTo(null);
+            
+            mainPanel.add(createModeSelectionPanel(), "MODE_SELECTION");
+            
+            add(mainPanel);
+            setVisible(true);
+        });
     }
     
     private void showPlayerNamePanel() {
@@ -86,6 +94,17 @@ public class CheckerGUIManager extends JFrame {
         computerButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         computerButton.addActionListener(e -> {
             gameMode = "COMPUTER";
+            aiLevel = "BEGINNER";
+            showPlayerNamePanel();
+        });
+        
+        RoundedButton computerIntermediateButton = new RoundedButton("vs Computer (Intermediate)", new Color(230, 126, 34), new Color(211, 84, 0));
+        computerIntermediateButton.setPreferredSize(new Dimension(300, 60));
+        computerIntermediateButton.setMaximumSize(new Dimension(300, 60));
+        computerIntermediateButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        computerIntermediateButton.addActionListener(e -> {
+            gameMode = "COMPUTER_INTERMEDIATE";
+            aiLevel = "INTERMEDIATE";
             showPlayerNamePanel();
         });
         
@@ -94,6 +113,12 @@ public class CheckerGUIManager extends JFrame {
         leaderboardButton.setMaximumSize(new Dimension(300, 60));
         leaderboardButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         leaderboardButton.addActionListener(e -> showLeaderboard());
+        
+        RoundedButton scoringInfoButton = new RoundedButton("📊 How to Score", new Color(155, 89, 182), new Color(142, 68, 173));
+        scoringInfoButton.setPreferredSize(new Dimension(300, 60));
+        scoringInfoButton.setMaximumSize(new Dimension(300, 60));
+        scoringInfoButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        scoringInfoButton.addActionListener(e -> showScoringInfoDialog());
         
         panel.add(Box.createVerticalGlue());
         panel.add(titleLabel);
@@ -104,10 +129,18 @@ public class CheckerGUIManager extends JFrame {
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
         panel.add(computerButton);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        panel.add(computerIntermediateButton);
+        panel.add(Box.createRigidArea(new Dimension(0, 20)));
         panel.add(leaderboardButton);
+        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        panel.add(scoringInfoButton);
         panel.add(Box.createVerticalGlue());
         
         return panel;
+    }
+    
+    private boolean isComputerMode() {
+        return "COMPUTER".equals(gameMode) || "COMPUTER_INTERMEDIATE".equals(gameMode);
     }
     
     private JPanel createPlayerNamePanel() {
@@ -154,41 +187,41 @@ public class CheckerGUIManager extends JFrame {
         redButton.setPreferredSize(new Dimension(150, 50));
         redButton.addActionListener(e -> {
             player1Name = player1Field.getText().trim();
-            if (gameMode.equals("COMPUTER")) {
+            if (isComputerMode()) {
                 player2Name = "Computer";
                 playerColor = CheckerColor.RED;
             } else {
                 player2Name = player2Field.getText().trim();
             }
             
-            if (player1Name.isEmpty() || (gameMode.equals("TWO_PLAYER") && player2Name.isEmpty())) {
+            if (player1Name.isEmpty() || (!isComputerMode() && player2Name.isEmpty())) {
                 JOptionPane.showMessageDialog(this, "Please enter all player names!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             
-            if (gameMode.equals("COMPUTER")) {
+            if (isComputerMode()) {
                 playerColor = CheckerColor.RED;
             }
             startGame();
         });
         
-        RoundedButton blackButton = new RoundedButton("Play as Black", new Color(52, 73, 94), new Color(44, 62, 80));
+        RoundedButton blackButton = new RoundedButton("Play as Black", new Color(30, 30, 30), new Color(50, 50, 50));
         blackButton.setPreferredSize(new Dimension(150, 50));
         blackButton.addActionListener(e -> {
             player1Name = player1Field.getText().trim();
-            if (gameMode.equals("COMPUTER")) {
+            if (isComputerMode()) {
                 player2Name = "Computer";
                 playerColor = CheckerColor.BLACK;
             } else {
                 player2Name = player2Field.getText().trim();
             }
             
-            if (player1Name.isEmpty() || (gameMode.equals("TWO_PLAYER") && player2Name.isEmpty())) {
+            if (player1Name.isEmpty() || (!isComputerMode() && player2Name.isEmpty())) {
                 JOptionPane.showMessageDialog(this, "Please enter all player names!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             
-            if (gameMode.equals("COMPUTER")) {
+            if (isComputerMode()) {
                 playerColor = CheckerColor.BLACK;
             }
             startGame();
@@ -232,6 +265,7 @@ public class CheckerGUIManager extends JFrame {
     private void startGame() {
         startTime = Instant.now();
         engine = new CheckerGameEngine();
+        gameOverHandled = false;
         
         mainPanel.removeAll();
         mainPanel.add(createModeSelectionPanel(), "MODE_SELECTION");
@@ -267,10 +301,14 @@ public class CheckerGUIManager extends JFrame {
         topPanel.add(infoLabel);
         topPanel.add(quitButton);
         
-        boolean isComputerMode = gameMode.equals("COMPUTER");
-        CheckerColor computerColor = isComputerMode ? playerColor.opposite() : null;
+        boolean computerMode = isComputerMode();
+        CheckerColor computerColor = computerMode ? playerColor.opposite() : null;
         
-        boardPanel = new CheckerBoardPanel(engine, isComputerMode, computerColor) {
+        capturedPiecesPanel = new CapturedPiecesPanel(engine);
+        
+        boardPanel = new CheckerBoardPanel(engine, computerMode, computerColor, capturedPiecesPanel, aiLevel != null ? aiLevel : "BEGINNER") {
+            private static final long serialVersionUID = 1L;
+            
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -282,19 +320,28 @@ public class CheckerGUIManager extends JFrame {
         centerPanel.setBackground(PRIMARY_COLOR);
         centerPanel.add(boardPanel);
         
+        JPanel rightPanel = new JPanel(new GridBagLayout());
+        rightPanel.setBackground(PRIMARY_COLOR);
+        rightPanel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+        rightPanel.add(capturedPiecesPanel);
+        
         panel.add(topPanel, BorderLayout.NORTH);
         panel.add(centerPanel, BorderLayout.CENTER);
+        panel.add(rightPanel, BorderLayout.EAST);
         
         return panel;
     }
     
     private void checkGameOverInGUI() {
-        if (engine.isGameOver()) {
-            SwingUtilities.invokeLater(() -> {
+        if (gameOverHandled || !engine.isGameOver()) {
+            return;
+        }
+        gameOverHandled = true;
+        SwingUtilities.invokeLater(() -> {
                 CheckerColor winner = engine.getWinner();
                 String winnerName = "";
                 
-                if (gameMode.equals("TWO_PLAYER")) {
+                if (!isComputerMode()) {
                     winnerName = (winner == CheckerColor.RED) ? player1Name : player2Name;
                 } else {
                     if ((winner == CheckerColor.RED && playerColor == CheckerColor.RED) ||
@@ -323,7 +370,15 @@ public class CheckerGUIManager extends JFrame {
                 JOptionPane.showMessageDialog(this, message, "Game Over!", JOptionPane.INFORMATION_MESSAGE);
                 
                 if (!winnerName.equals("Computer")) {
-                    LeaderboardEntry entry = new LeaderboardEntry(winnerName, totalScore, gameMode.equals("TWO_PLAYER") ? "Two Players" : "vs Computer");
+                    String modeLabel;
+                    if (!isComputerMode()) {
+                        modeLabel = "Two Players";
+                    } else if ("INTERMEDIATE".equals(aiLevel)) {
+                        modeLabel = "vs Computer (Intermediate)";
+                    } else {
+                        modeLabel = "vs Computer (Beginner)";
+                    }
+                    LeaderboardEntry entry = new LeaderboardEntry(winnerName, totalScore, modeLabel);
                     LeaderboardManager.addScore(entry);
                 }
                 
@@ -338,7 +393,6 @@ public class CheckerGUIManager extends JFrame {
                     cardLayout.show(mainPanel, "MODE_SELECTION");
                 }
             });
-        }
     }
     
     private void showLeaderboard() {
@@ -373,6 +427,46 @@ public class CheckerGUIManager extends JFrame {
         sb.append("</table></body></html>");
         
         JOptionPane.showMessageDialog(this, sb.toString(), "Leaderboard", JOptionPane.PLAIN_MESSAGE);
+    }
+    
+    private void showScoringInfoDialog() {
+        String message =
+            "📊 HOW SCORING WORKS 📊\n\n" +
+            "Your final score is calculated based on:\n\n" +
+            "🎯 BASE SCORE (Win Only):\n" +
+            "   • Winning a game = 500 base points\n" +
+            "   • Only the winner receives a score\n\n" +
+            "♟️ PIECES REMAINING BONUS:\n" +
+            "   • Each remaining piece = 50 points\n" +
+            "   • Maximum 12 pieces × 50 = 600 points\n" +
+            "   • Dominate the board for more points!\n\n" +
+            "⚡ TIME BONUS:\n" +
+            "   • Faster wins = Higher bonus!\n" +
+            "   • Maximum 300 bonus points\n" +
+            "   • Formula: 300 - (seconds ÷ 2)\n" +
+            "   • Win in 2 min = +240 bonus\n" +
+            "   • Win in 5 min = +150 bonus\n" +
+            "   • After 10 min, time bonus = 0\n\n" +
+            "💡 EXAMPLE:\n" +
+            "   • Win with 8 pieces left in 4 minutes\n" +
+            "   • Base: 500 points\n" +
+            "   • Pieces: 8 × 50 = 400 points\n" +
+            "   • Time: 300 - (240 ÷ 2) = 180 points\n" +
+            "   • Final Score = 1,080 points\n\n" +
+            "🏆 TIPS TO MAXIMIZE YOUR SCORE:\n" +
+            "   • Capture opponent pieces while keeping yours\n" +
+            "   • Win quickly for the time bonus\n" +
+            "   • Use kings strategically for efficient captures\n\n" +
+            "📝 NOTE:\n" +
+            "   • Computer wins are not saved to the leaderboard\n" +
+            "   • Only the TOP 10 scores are kept!";
+        
+        JOptionPane.showMessageDialog(
+            this,
+            message,
+            "How to Score",
+            JOptionPane.INFORMATION_MESSAGE
+        );
     }
     
     public static void main(String[] args) {

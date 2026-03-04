@@ -5,18 +5,24 @@ import com.game.checker.resources.CheckerImageLoader;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
 import java.util.List;
+import javax.swing.Timer;
 
 public class CheckerBoardPanel extends JPanel {
-    private CheckerGameEngine engine;
+    private static final long serialVersionUID = 1L;
+    
+    private transient CheckerGameEngine engine;
     private JButton[][] boardButtons;
     private int selectedRow = -1;
     private int selectedCol = -1;
-    private List<CheckerMove> currentValidMoves;
-    private CheckerAI ai;
+    private transient List<CheckerMove> currentValidMoves;
+    private transient CheckerAI ai;
+    private transient CheckerAIIntermediate intermediateAI;
     private boolean isComputerMode;
     private CheckerColor computerColor;
+    private CapturedPiecesPanel capturedPiecesPanel;
+    private boolean gameOverHandled = false;
+    private String aiLevel;
     
     private static final Color LIGHT_SQUARE = new Color(240, 217, 181);
     private static final Color DARK_SQUARE = new Color(181, 136, 99);
@@ -24,14 +30,22 @@ public class CheckerBoardPanel extends JPanel {
     private static final Color VALID_MOVE_COLOR = new Color(0, 255, 0, 100);
     private static final Color CAPTURE_MOVE_COLOR = new Color(255, 0, 0, 100);
     
-    public CheckerBoardPanel(CheckerGameEngine engine, boolean isComputerMode, CheckerColor computerColor) {
+    
+    public CheckerBoardPanel(CheckerGameEngine engine, boolean isComputerMode, CheckerColor computerColor, CapturedPiecesPanel capturedPiecesPanel) {
+        this(engine, isComputerMode, computerColor, capturedPiecesPanel, "BEGINNER");
+    }
+    
+    public CheckerBoardPanel(CheckerGameEngine engine, boolean isComputerMode, CheckerColor computerColor, CapturedPiecesPanel capturedPiecesPanel, String aiLevel) {
         this.engine = engine;
         this.isComputerMode = isComputerMode;
         this.computerColor = computerColor;
         this.ai = new CheckerAI();
+        this.intermediateAI = new CheckerAIIntermediate();
+        this.boardButtons = new JButton[8][8];
+        this.capturedPiecesPanel = capturedPiecesPanel;
+        this.aiLevel = aiLevel;
         
         setLayout(new GridLayout(8, 8));
-        boardButtons = new JButton[8][8];
         initializeBoard();
         updateBoard();
         
@@ -44,6 +58,8 @@ public class CheckerBoardPanel extends JPanel {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
                 JButton square = new JButton() {
+                    private static final long serialVersionUID = 1L;
+                    
                     @Override
                     protected void paintComponent(Graphics g) {
                         g.setColor(getBackground());
@@ -113,19 +129,22 @@ public class CheckerBoardPanel extends JPanel {
     }
     
     private void makeComputerMove() {
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        
-        CheckerMove computerMove = ai.getBestMove(engine, computerColor);
-        if (computerMove != null) {
-            engine.executeMove(computerMove);
-            engine.switchPlayer();
-            updateBoard();
-            checkGameOver();
-        }
+        Timer timer = new Timer(500, e -> {
+            CheckerMove computerMove;
+            if ("INTERMEDIATE".equals(aiLevel)) {
+                computerMove = intermediateAI.getBestMove(engine, computerColor);
+            } else {
+                computerMove = ai.getBestMove(engine, computerColor);
+            }
+            if (computerMove != null) {
+                engine.executeMove(computerMove);
+                engine.switchPlayer();
+                updateBoard();
+                checkGameOver();
+            }
+        });
+        timer.setRepeats(false);
+        timer.start();
     }
     
     private CheckerMove findMove(int fromRow, int fromCol, int toRow, int toCol) {
@@ -183,13 +202,21 @@ public class CheckerBoardPanel extends JPanel {
                 }
             }
         }
+        
+        if (capturedPiecesPanel != null) {
+            capturedPiecesPanel.refreshCapturedPieces();
+        }
     }
     
     private void checkGameOver() {
-        if (engine.isGameOver()) {
-            CheckerColor winner = engine.getWinner();
-            String message = winner + " wins!";
-            JOptionPane.showMessageDialog(this, message, "Game Over", JOptionPane.INFORMATION_MESSAGE);
+        if (gameOverHandled || !engine.isGameOver()) {
+            return;
         }
+        gameOverHandled = true;
+        CheckerColor winner = engine.getWinner();
+        String message = winner + " wins!";
+        SwingUtilities.invokeLater(() -> 
+            JOptionPane.showMessageDialog(this, message, "Game Over", JOptionPane.INFORMATION_MESSAGE)
+        );
     }
 }

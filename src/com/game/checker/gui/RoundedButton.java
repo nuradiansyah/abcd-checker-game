@@ -4,6 +4,8 @@ import javax.swing.*;
 import java.awt.*;
 
 public class RoundedButton extends JButton {
+    private static final long serialVersionUID = 1L;
+    
     private Color backgroundColor;
     private Color hoverColor;
     private boolean isHovering = false;

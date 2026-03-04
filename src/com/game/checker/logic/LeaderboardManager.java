@@ -21,6 +21,7 @@ public class LeaderboardManager {
         saveLeaderboard(leaderboard);
     }
     
+    @SuppressWarnings("unchecked")
     public static List<LeaderboardEntry> loadLeaderboard() {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(LEADERBOARD_FILE))) {
             return (List<LeaderboardEntry>) ois.readObject();
