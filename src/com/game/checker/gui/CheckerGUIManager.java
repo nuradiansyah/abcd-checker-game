@@ -39,6 +39,7 @@ public class CheckerGUIManager extends JFrame {
             setSize(1050, 850);
             setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             setLocationRelativeTo(null);
+            setGameIcon();
             
             mainPanel.add(createModeSelectionPanel(), "MODE_SELECTION");
             
@@ -340,16 +341,27 @@ public class CheckerGUIManager extends JFrame {
         SwingUtilities.invokeLater(() -> {
                 CheckerColor winner = engine.getWinner();
                 String winnerName = "";
+                boolean playerWon = false;
                 
                 if (!isComputerMode()) {
                     winnerName = (winner == CheckerColor.RED) ? player1Name : player2Name;
+                    playerWon = true; // In two-player mode, someone always wins
                 } else {
                     if ((winner == CheckerColor.RED && playerColor == CheckerColor.RED) ||
                         (winner == CheckerColor.BLACK && playerColor == CheckerColor.BLACK)) {
                         winnerName = player1Name;
+                        playerWon = true;
                     } else {
                         winnerName = "Computer";
+                        playerWon = false;
                     }
+                }
+                
+                // Play win or lose sound
+                if (playerWon) {
+                    SoundEffects.playWinSound();
+                } else {
+                    SoundEffects.playLoseSound();
                 }
                 
                 Duration duration = Duration.between(startTime, Instant.now());
@@ -388,9 +400,7 @@ public class CheckerGUIManager extends JFrame {
                     mainPanel.add(createModeSelectionPanel(), "MODE_SELECTION");
                     cardLayout.show(mainPanel, "MODE_SELECTION");
                 } else {
-                    mainPanel.removeAll();
-                    mainPanel.add(createModeSelectionPanel(), "MODE_SELECTION");
-                    cardLayout.show(mainPanel, "MODE_SELECTION");
+                    dispose();
                 }
             });
     }
@@ -426,7 +436,41 @@ public class CheckerGUIManager extends JFrame {
         
         sb.append("</table></body></html>");
         
-        JOptionPane.showMessageDialog(this, sb.toString(), "Leaderboard", JOptionPane.PLAIN_MESSAGE);
+        JLabel leaderboardLabel = new JLabel(sb.toString());
+        
+        JPanel dialogPanel = new JPanel();
+        dialogPanel.setLayout(new BoxLayout(dialogPanel, BoxLayout.Y_AXIS));
+        dialogPanel.add(leaderboardLabel);
+        dialogPanel.add(Box.createRigidArea(new Dimension(0, 15)));
+        
+        JButton clearButton = new JButton("🗑 Clear Leaderboard");
+        clearButton.setFont(new Font("Arial", Font.BOLD, 14));
+        clearButton.setForeground(new Color(192, 57, 43));
+        clearButton.setFocusPainted(false);
+        clearButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        clearButton.setPreferredSize(new Dimension(200, 40));
+        clearButton.setMaximumSize(new Dimension(200, 40));
+        clearButton.addActionListener(e -> {
+            int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to clear the entire leaderboard?\nThis action cannot be undone.",
+                "Clear Leaderboard",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                LeaderboardManager.clearLeaderboard();
+                JOptionPane.showMessageDialog(this, "Leaderboard cleared!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                // Close the leaderboard dialog
+                SwingUtilities.getWindowAncestor(clearButton).dispose();
+            }
+        });
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.add(clearButton);
+        dialogPanel.add(buttonPanel);
+        
+        JOptionPane.showMessageDialog(this, dialogPanel, "Leaderboard", JOptionPane.PLAIN_MESSAGE);
     }
     
     private void showScoringInfoDialog() {
@@ -467,6 +511,17 @@ public class CheckerGUIManager extends JFrame {
             "How to Score",
             JOptionPane.INFORMATION_MESSAGE
         );
+    }
+
+    private void setGameIcon() {
+        java.awt.Image icon = GameIconFactory.createIcon(128);
+        setIconImage(icon);
+        try {
+            java.awt.Taskbar taskbar = java.awt.Taskbar.getTaskbar();
+            taskbar.setIconImage(icon);
+        } catch (UnsupportedOperationException | SecurityException ignored) {
+            // Not supported on this platform — window icon is still set above
+        }
     }
     
     public static void main(String[] args) {

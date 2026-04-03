@@ -40,6 +40,7 @@ public class RoundedButton extends JButton {
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         
         if (isHovering) {
             g2.setColor(hoverColor);
@@ -48,8 +49,17 @@ public class RoundedButton extends JButton {
         }
         
         g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-        g2.dispose();
         
-        super.paintComponent(g);
+        // Draw text manually to ensure it renders on macOS
+        g2.setColor(getForeground());
+        g2.setFont(getFont());
+        FontMetrics fm = g2.getFontMetrics();
+        String text = getText();
+        int textWidth = fm.stringWidth(text);
+        int textX = (getWidth() - textWidth) / 2;
+        int textY = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
+        g2.drawString(text, textX, textY);
+        
+        g2.dispose();
     }
 }

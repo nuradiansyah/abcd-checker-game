@@ -107,7 +107,31 @@ public class CheckerBoardPanel extends JPanel {
             CheckerMove selectedMove = findMove(selectedRow, selectedCol, row, col);
             
             if (selectedMove != null) {
+                // Check if piece will become king
+                CheckerPiece movingPiece = engine.getBoard().getPiece(selectedRow, selectedCol);
+                boolean willBecomeKing = false;
+                if (movingPiece != null && !movingPiece.isKing()) {
+                    int targetRow = selectedMove.getToRow();
+                    if ((movingPiece.getColor() == CheckerColor.RED && targetRow == 7) ||
+                        (movingPiece.getColor() == CheckerColor.BLACK && targetRow == 0)) {
+                        willBecomeKing = true;
+                    }
+                }
+                
+                // Play appropriate sound
+                if (selectedMove.isCapture()) {
+                    SoundEffects.playCaptureSound();
+                } else {
+                    SoundEffects.playMoveSound();
+                }
+                
                 engine.executeMove(selectedMove);
+                
+                // Play king promotion sound if applicable
+                if (willBecomeKing) {
+                    SoundEffects.playKingPromotionSound();
+                }
+                
                 engine.switchPlayer();
                 clearSelection();
                 updateBoard();
@@ -137,7 +161,31 @@ public class CheckerBoardPanel extends JPanel {
                 computerMove = ai.getBestMove(engine, computerColor);
             }
             if (computerMove != null) {
+                // Check if piece will become king
+                CheckerPiece movingPiece = engine.getBoard().getPiece(computerMove.getFromRow(), computerMove.getFromCol());
+                boolean willBecomeKing = false;
+                if (movingPiece != null && !movingPiece.isKing()) {
+                    int targetRow = computerMove.getToRow();
+                    if ((movingPiece.getColor() == CheckerColor.RED && targetRow == 7) ||
+                        (movingPiece.getColor() == CheckerColor.BLACK && targetRow == 0)) {
+                        willBecomeKing = true;
+                    }
+                }
+                
+                // Play appropriate sound
+                if (computerMove.isCapture()) {
+                    SoundEffects.playCaptureSound();
+                } else {
+                    SoundEffects.playMoveSound();
+                }
+                
                 engine.executeMove(computerMove);
+                
+                // Play king promotion sound if applicable
+                if (willBecomeKing) {
+                    SoundEffects.playKingPromotionSound();
+                }
+                
                 engine.switchPlayer();
                 updateBoard();
                 checkGameOver();
@@ -213,10 +261,5 @@ public class CheckerBoardPanel extends JPanel {
             return;
         }
         gameOverHandled = true;
-        CheckerColor winner = engine.getWinner();
-        String message = winner + " wins!";
-        SwingUtilities.invokeLater(() -> 
-            JOptionPane.showMessageDialog(this, message, "Game Over", JOptionPane.INFORMATION_MESSAGE)
-        );
     }
 }

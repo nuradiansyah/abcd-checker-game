@@ -40,4 +40,8 @@ public class LeaderboardManager {
             e.printStackTrace();
         }
     }
+    
+    public static void clearLeaderboard() {
+        saveLeaderboard(new ArrayList<>());
+    }
 }

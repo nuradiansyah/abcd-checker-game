@@ -36,7 +36,7 @@ A classic Checker (Draughts) game implementation in Java with Swing GUI.
 
 ### From JAR:
 ```bash
-java -jar checker_2026-03-04.jar
+java -jar releases/checker_2026-03-05.jar
 ```
 
 ### In Eclipse:
